@@ -1,14 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { fieldIdFromRowKey, listFields, rowFieldKey, updateRecord } from "../src/baserow/client";
+import {
+  fieldIdFromRowKey,
+  listFields,
+  rowFieldKey,
+  updateRecord,
+  uploadAndAttachPhoto,
+} from "../src/baserow/client";
 import { useStoredConnection } from "../src/connection/useStoredConnection";
 import { useThemeColors } from "../src/theme";
 import { isEditableFieldType } from "../src/baserow/types";
-import type { FieldSummary } from "../src/baserow/types";
+import type { BaserowFile, FieldSummary } from "../src/baserow/types";
 import type { AssetRecord } from "../src/types";
+
+type PhotoState =
+  | { phase: "idle" }
+  | { phase: "capturing" }
+  | { phase: "uploading" }
+  | { phase: "done" }
+  | { phase: "error"; message: string };
 
 function parseRecord(raw: string | string[] | undefined): AssetRecord | null {
   if (typeof raw !== "string") {
@@ -49,6 +63,11 @@ export default function RecordScreen() {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
+
+  const [permission, requestPermission] = useCameraPermissions();
+  const [photoState, setPhotoState] = useState<PhotoState>({ phase: "idle" });
+  const cameraRef = useRef<CameraView | null>(null);
+  const photoInFlightRef = useRef(false);
 
   useEffect(() => {
     if (stored.status !== "ready" || !stored.state) {
@@ -98,6 +117,48 @@ export default function RecordScreen() {
       setSaveError(result.reason);
     }
   }, [stored, record, values]);
+
+  const photoFieldId =
+    stored.status === "ready" ? stored.state?.fieldConfiguration.photoFieldId ?? null : null;
+  const existingAttachments: BaserowFile[] =
+    photoFieldId && record
+      ? ((record.displayFields[rowFieldKey(photoFieldId)] as BaserowFile[] | undefined) ?? [])
+      : [];
+
+  const handleStartCapture = useCallback(async () => {
+    if (!permission?.granted) {
+      const result = await requestPermission();
+      if (!result.granted) {
+        return;
+      }
+    }
+    setPhotoState({ phase: "capturing" });
+  }, [permission, requestPermission]);
+
+  const handleCapture = useCallback(async () => {
+    if (stored.status !== "ready" || !stored.state || !record || photoInFlightRef.current) {
+      return;
+    }
+    const camera = cameraRef.current;
+    if (!camera) {
+      return;
+    }
+    const photo = await camera.takePictureAsync();
+    if (!photo) {
+      return;
+    }
+    photoInFlightRef.current = true;
+    setPhotoState({ phase: "uploading" });
+    const result = await uploadAndAttachPhoto(
+      stored.state.connection,
+      stored.state.fieldConfiguration,
+      record.rowId,
+      photo.uri,
+      existingAttachments
+    );
+    photoInFlightRef.current = false;
+    setPhotoState(result.ok ? { phase: "done" } : { phase: "error", message: result.reason });
+  }, [stored, record, existingAttachments]);
 
   if (!record) {
     return (
@@ -165,6 +226,66 @@ export default function RecordScreen() {
           )}
         </Pressable>
 
+        {photoFieldId && (
+          <View style={styles.photoSection}>
+            <Text style={[styles.label, { color: colors.text }]}>Photo evidence</Text>
+
+            {photoState.phase === "idle" && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add photo"
+                style={styles.button}
+                onPress={handleStartCapture}
+              >
+                <Text style={styles.buttonText}>Add photo</Text>
+              </Pressable>
+            )}
+
+            {photoState.phase === "capturing" && permission?.granted && (
+              <View>
+                <CameraView ref={cameraRef} style={styles.photoCamera} facing="back" />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Capture photo"
+                  style={styles.button}
+                  onPress={handleCapture}
+                >
+                  <Text style={styles.buttonText}>Capture photo</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {photoState.phase === "capturing" && permission && !permission.granted && (
+              <Text style={[styles.message, { color: colors.text }]}>
+                Fieldrow needs camera access to attach a photo. Record editing above still works
+                without it.
+              </Text>
+            )}
+
+            {photoState.phase === "uploading" && (
+              <ActivityIndicator accessibilityLabel="Uploading photo" />
+            )}
+
+            {photoState.phase === "done" && (
+              <Text style={styles.success}>Photo attached.</Text>
+            )}
+
+            {photoState.phase === "error" && (
+              <View>
+                <Text style={styles.error}>{photoState.message}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Try again"
+                  style={styles.button}
+                  onPress={() => setPhotoState({ phase: "idle" })}
+                >
+                  <Text style={styles.buttonText}>Try again</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+
         {saveState === "saved" && (
           <Pressable
             accessibilityRole="button"
@@ -211,4 +332,6 @@ const styles = StyleSheet.create({
   buttonText: { color: "#ffffff", fontSize: 16, fontWeight: "600" },
   doneButton: { marginTop: 16, minHeight: 44, alignItems: "center", justifyContent: "center" },
   doneButtonText: { fontSize: 16 },
+  photoSection: { marginTop: 24, gap: 8 },
+  photoCamera: { width: "100%", height: 300, borderRadius: 8, marginBottom: 8 },
 });
