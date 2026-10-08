@@ -43,25 +43,28 @@ rationale survives independent of that conversation.
 
 ## Decision: `expo-camera` for both barcode scanning and photo capture
 
-- **Decision**: Use `expo-camera`'s barcode scanning API for Scan and its photo capture API for
-  the Record screen's attachment step.
+- **Decision**: Use `expo-camera`'s `CameraView` — its `barcodeScannerEnabled`/
+  `onBarcodeScanned` for Scan, and its photo-capture method for the Record screen's attachment
+  step.
 - **Rationale**: One camera dependency covers both FR-008 (scan) and FR-017 (photo capture)
   instead of pairing a barcode-only library with a separate camera/image-picker library.
 - **Alternatives considered**: `expo-barcode-scanner` + `expo-image-picker` (rejected —
-  `expo-barcode-scanner` is deprecated in favor of `expo-camera`'s built-in scanning, and a second
-  capture library is redundant once `expo-camera` is already present).
+  `expo-barcode-scanner`'s scanning capability has moved into `expo-camera`'s `CameraView`, and a
+  second capture library is redundant once `expo-camera` is already present).
 
-## Decision: Jest + React Native Testing Library for automated tests; live table for integration
+## Decision: `jest-expo` + React Native Testing Library for automated tests; live table for integration
 
-- **Decision**: Unit/contract tests run under Jest against the Baserow service boundary and
-  connection storage module. End-to-end verification of the three user stories runs manually
-  against a live Baserow test table, per the spec's Assumptions and the constitution's
-  Development Workflow gate.
-- **Rationale**: Jest is Expo's default test runner — no new dependency. The Baserow service
-  boundary (`src/baserow/client.ts`) is the one place HTTP behavior can be verified without a live
-  server, using mocked `fetch` responses for the three lookup outcomes and update/upload
-  failure paths. The constitution explicitly requires live-table verification before release, so
-  that step is not replaced by mocks, only supplemented by them.
+- **Decision**: Unit/contract tests run under `jest-expo` (Expo's Jest preset) with
+  `@testing-library/react-native`, against the Baserow service boundary and connection storage
+  module. End-to-end verification of the three user stories runs manually against a live Baserow
+  test table, per the spec's Assumptions and the constitution's Development Workflow gate.
+- **Rationale**: `jest-expo` is Expo's own documented test setup, not a competing framework
+  choice — but it and `@testing-library/react-native` are still two new dev dependencies, counted
+  in plan.md's Constitution Check rather than waved away as "no new dependency." The Baserow
+  service boundary (`src/baserow/client.ts`) is the one place HTTP behavior can be verified
+  without a live server, using mocked `fetch` responses for the three lookup outcomes and
+  update/upload failure paths. The constitution explicitly requires live-table verification
+  before release, so that step is not replaced by mocks, only supplemented by them.
 - **Alternatives considered**: End-to-end device automation (e.g. Detox) (rejected — out of scope
   for v0's size; the constitution calls for "the smallest runnable automated check that proves
   [each] behavior," and manual live-table verification already covers the end-to-end path).

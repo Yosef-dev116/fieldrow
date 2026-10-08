@@ -15,20 +15,22 @@ service boundary. No backend proxy, accounts, or offline sync.
 
 ## Technical Context
 
-**Language/Version**: TypeScript, Expo SDK 52 (React Native 0.76), managed workflow
+**Language/Version**: TypeScript, Expo SDK 57 (React Native 0.86), managed workflow
 
 **Primary Dependencies**: `expo-router` (navigation/screens), `expo-camera` (barcode scan + photo
-capture), `expo-secure-store` (all persisted connection/config data), native `fetch` for Baserow
-HTTP calls. No state-management library, no backend proxy, no additional storage dependency.
+capture via `CameraView`), `expo-secure-store` (all persisted connection/config data), native
+`fetch` for Baserow HTTP calls. No state-management library, no backend proxy, no additional
+storage dependency.
 
 **Storage**: `expo-secure-store` only — the database token, server URL, and field configuration
 (table id, barcode field, editable fields, photo field) are stored together as one secured JSON
 blob. A single storage mechanism satisfies Constitution IV without adding a second dependency
 (e.g. AsyncStorage) for the non-secret parts.
 
-**Testing**: Jest + `@testing-library/react-native` for unit/contract tests of the Baserow service
-boundary and connection storage module. A live Baserow test table (per spec Assumptions) is used
-for manual verification of the quickstart scenarios before release, as required by the
+**Testing**: `jest-expo` + `@testing-library/react-native` for unit/contract tests of the Baserow
+service boundary and connection storage module — these are new dev dependencies, not already in a
+default Expo project (see Constitution Check). A live Baserow test table (per spec Assumptions)
+is used for manual verification of the quickstart scenarios before release, as required by the
 constitution's Development Workflow gate.
 
 **Target Platform**: iOS 15+ and Android (API 26+) through one adaptive Expo app; no web target.
@@ -61,9 +63,10 @@ multi-table, multi-user, or administrative surface.
 - **IV. Credential Safety** — PASS. The token is written only to `expo-secure-store`, read only by
   `src/connection/storage.ts`, and never interpolated into logs or error messages (errors are
   mapped to user-facing strings before display).
-- **V. Native Simplicity** — PASS. Three dependencies beyond Expo's defaults (`expo-router`,
-  `expo-camera`, `expo-secure-store`), native `fetch`, no Redux/MobX/Zustand, no custom native
-  modules.
+- **V. Native Simplicity** — PASS. Five dependencies beyond Expo's defaults: `expo-router`,
+  `expo-camera`, `expo-secure-store` for the app; `jest-expo` and `@testing-library/react-native`
+  as dev-only dependencies for the smallest runnable automated check per service contract. Native
+  `fetch` for HTTP, no Redux/MobX/Zustand, no custom native modules.
 
 No violations — Complexity Tracking is not needed.
 

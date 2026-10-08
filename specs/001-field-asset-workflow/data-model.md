@@ -16,8 +16,10 @@ whole (with Field Configuration) as a single `expo-secure-store` entry (FR-003, 
 | `token` | `string` | Non-empty; never rendered in logs, errors, or UI (FR-003, FR-019). |
 
 **State**: unset → validating → usable → (replaced | cleared). FR-002 requires validation before
-"usable"; invalid/expired/revoked/under-permissioned tokens keep the Connection in a non-usable
-state with a corrective, non-credential-revealing message (FR-004 Edge Case, FR-019).
+"usable"; validation is the contract's `listTables` call (see
+[contracts/baserow-client.md](./contracts/baserow-client.md)) — success moves the Connection to
+`usable` and populates the table picker, failure keeps it non-usable with a corrective,
+non-credential-revealing message (FR-004 Edge Case, FR-019).
 
 ## Field Configuration
 

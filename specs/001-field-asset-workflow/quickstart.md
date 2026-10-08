@@ -8,10 +8,14 @@ exercises indirectly through the UI.
 
 ## Prerequisites
 
-- A Baserow test table (Cloud or self-hosted) with: a unique-text barcode column, at least one
-  editable column, and a file/attachment column for photos — per the spec's Assumptions.
-- Seed rows covering: one unique barcode, one barcode with no matching row's value, and one
-  barcode value duplicated across two rows (needed for User Story 1's three outcomes).
+- A Baserow test table (Cloud or self-hosted) with: a text column used for barcode values (not
+  required to be unique — the duplicate-match seed row below depends on a repeated value), at
+  least one editable column, and a file/attachment column for photos — per the spec's
+  Assumptions.
+- Seed rows covering all three lookup outcomes: one row with a barcode value found nowhere else
+  in the table (for the unique-match scan), one barcode value entered on no row at all (for the
+  no-match scan), and one barcode value duplicated across two rows (for the duplicate-match scan)
+  (needed for User Story 1's three outcomes).
 - A restricted Baserow database token scoped to that table with read, update, and file
   permissions.
 - iOS simulator or device, and/or Android emulator or device, with Expo Go or a dev build
@@ -62,11 +66,12 @@ Open the app on a simulator/device/emulator from the Expo CLI output.
 4. Deny camera permission and attempt to capture a photo. Expect: the app explains how to grant
    access, and record editing (User Story 2) remains usable (Acceptance Scenario 3.3).
 
-## Accessibility pass (SC-007)
+## Accessibility and appearance pass (SC-007, FR-020)
 
-Repeat the Scan → Find → Update → Photo → Save loop once with the system text size enlarged and
-once with a screen reader (VoiceOver / TalkBack) enabled, on both the iOS and Android test
-devices. Expect: no step is blocked in either mode.
+On both the iOS and Android test devices, repeat the Scan → Find → Update → Photo → Save loop
+once with the system text size enlarged, once with a screen reader (VoiceOver / TalkBack)
+enabled, once in the device's light appearance, and once in dark appearance. Expect: no step is
+blocked and no content is unreadable in any of the four runs.
 
 ## Credential-safety check (SC-008)
 

@@ -2,7 +2,28 @@
 
 Phase 1 output for [plan.md](./plan.md). This is the one module (Constitution II) that screens may
 call for Baserow access — no screen performs HTTP, builds auth headers, or parses Baserow
-responses directly. Three functions cover the full v0 workflow.
+responses directly. Five functions cover the full v0 workflow: two back the Connect/Configure
+screen (validate, then populate the table/field pickers), three back Scan and Record.
+
+## `listTables(connection): Promise<TableSummary[]>`
+
+- **Input**: `connection` (server URL + token).
+- **Behavior**: Lists the tables the token can access. A successful call is also how the Connect
+  screen moves a `Connection` out of the `validating` state in
+  [data-model.md](../data-model.md) — if this call succeeds, the server URL and token are usable
+  (FR-002); if it fails, the connection stays non-usable.
+- **Failure modes**: unreachable server URL, invalid/expired/revoked token. Each maps to a
+  distinct user-facing string that never includes the token (FR-002, FR-019).
+
+## `listFields(connection, tableId): Promise<FieldSummary[]>`
+
+- **Input**: `connection`, the `tableId` chosen from `listTables`.
+- **Behavior**: Lists the table's fields with id, name, and type, so the Configure screen can
+  offer one barcode field, zero or more editable fields (restricted to v0-editor-supported types
+  per [data-model.md](../data-model.md)'s `editableFieldIds` rule), and zero or one photo field
+  (FR-005).
+- **Failure modes**: `tableId` no longer exists or the token lost read access since `listTables`
+  (Edge Case: table/field deleted or changed) — surfaced as a configuration error, not a crash.
 
 ## `lookupByBarcode(connection, fieldConfig, scannedValue): Promise<LookupOutcome>`
 
