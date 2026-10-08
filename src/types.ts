@@ -28,6 +28,16 @@ export type LookupOutcome =
 /** Result of persisting field changes to a row (FR-015, FR-016) — never a false success. */
 export type UpdateResult = { ok: true } | { ok: false; reason: string };
 
+/**
+ * Result of uploading and attaching a photo (FR-017, FR-018) — `failedStep` distinguishes an
+ * upload failure from an attach failure so a partial photo failure never implies a complete
+ * save.
+ */
+export type PhotoAttachResult =
+  | { ok: true }
+  | { ok: false; failedStep: "upload"; reason: string }
+  | { ok: false; failedStep: "attach"; reason: string };
+
 export type PhotoUploadState = "idle" | "uploading" | "uploaded" | "upload_failed";
 export type PhotoAttachState = "idle" | "attaching" | "attached" | "attach_failed";
 
