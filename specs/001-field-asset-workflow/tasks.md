@@ -29,12 +29,12 @@ Single Expo project per plan.md's Project Structure: `app/` (Expo Router screens
 
 **Purpose**: Project initialization matching plan.md's Technical Context and Project Structure.
 
-- [ ] T001 Initialize the Expo SDK 57 (React Native 0.86) TypeScript app at the repository root
+- [X] T001 Initialize the Expo SDK 57 (React Native 0.86) TypeScript app at the repository root
       so the result matches plan.md's `app/`, `src/`, `tests/` layout exactly.
-- [ ] T002 Install and configure `expo-router`, `expo-camera`, `expo-secure-store` — add the
+- [X] T002 Install and configure `expo-router`, `expo-camera`, `expo-secure-store` — add the
       `expo-router` scheme and the `expo-camera` config plugin to `app.json` per research.md's
       Decision entries for navigation and camera.
-- [ ] T003 Install and configure `jest-expo` + `@testing-library/react-native` (test script
+- [X] T003 Install and configure `jest-expo` + `@testing-library/react-native` (test script
       in `package.json`, `jest-expo` preset in jest config) per plan.md's Testing section — these
       are the two dev-only dependencies counted in the Constitution Check. Not `[P]` with T002:
       both edit `package.json` and the lockfile.
@@ -50,23 +50,23 @@ calls depend on.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T004 Create shared domain types in `src/types.ts`: `Connection` (`serverUrl: string` —
+- [X] T004 Create shared domain types in `src/types.ts`: `Connection` (`serverUrl: string` —
       "Non-empty; trailing slash normalized away"; `token: string` — "Non-empty; never rendered
       in logs, errors, or UI"), `FieldConfiguration` (`tableId`, `barcodeFieldId`,
       `editableFieldIds: string[]`, `photoFieldId: string | null`), `AssetRecord`, `LookupOutcome`
       (`{ kind: "none" } | { kind: "found"; record } | { kind: "duplicate" }`), and
       `PhotoAttachment` (`uploadState`, `attachState` as the enums in data-model.md) — field
       shapes and constraints exactly as specified in [data-model.md](./data-model.md).
-- [ ] T005 [P] Create Baserow response types in `src/baserow/types.ts`: table/field summary
+- [X] T005 [P] Create Baserow response types in `src/baserow/types.ts`: table/field summary
       shapes returned by `listTables`/`listFields`, and the row/file shapes `lookupByBarcode`,
       `updateRecord`, and `uploadAndAttachPhoto` consume, per
       [contracts/baserow-client.md](./contracts/baserow-client.md).
-- [ ] T006 Implement connection + field-configuration persistence in `src/connection/storage.ts`:
+- [X] T006 Implement connection + field-configuration persistence in `src/connection/storage.ts`:
       read/write/clear a single `expo-secure-store` JSON blob holding `Connection` and
       `FieldConfiguration` together (plan.md's Storage decision). Writing or replacing the
       configuration MUST let the user later "replace or clear it" (FR-006), and no function in
       this module may log or return the token in an error (FR-003, FR-019).
-- [ ] T007 [P] Create the Expo Router root layout in `app/_layout.tsx` wiring the three screens
+- [X] T007 [P] Create the Expo Router root layout in `app/_layout.tsx` wiring the three screens
       (`index` → `scan` → `record`) per plan.md's Project Structure.
 
 **Checkpoint**: Foundation ready — user story implementation can now begin.
