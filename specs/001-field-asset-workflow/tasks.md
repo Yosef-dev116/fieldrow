@@ -144,7 +144,7 @@ Baserow that those fields changed while non-editable fields did not (per spec.md
 
 ### Tests for User Story 2
 
-- [ ] T015 [US2] Contract tests for `updateRecord` in `tests/contract/baserow-client.test.ts`
+- [X] T015 [US2] Contract tests for `updateRecord` in `tests/contract/baserow-client.test.ts`
       (same file as T008/T009 — sequential): a successful write returns `{ ok: true }` only after
       Baserow confirms it; network loss mid-update, permission denial, and Baserow-side
       validation rejection all return `{ ok: false; reason }` without ever reporting success
@@ -152,11 +152,11 @@ Baserow that those fields changed while non-editable fields did not (per spec.md
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Implement `updateRecord(connection, fieldConfig, rowId, editableValues)` in
+- [X] T016 [US2] Implement `updateRecord(connection, fieldConfig, rowId, editableValues)` in
       `src/baserow/client.ts`: the request body contains exactly the changed `editableValues`
       keys — no other row field is ever sent, so no other value can be overwritten (FR-014,
       FR-015) — satisfies T015.
-- [ ] T017 [US2] Build the field-editing UI in `app/record.tsx`: render `AssetRecord.displayFields`
+- [X] T017 [US2] Build the field-editing UI in `app/record.tsx`: render `AssetRecord.displayFields`
       read-only except the configured `editableFieldIds` (FR-013, FR-014); on save, call
       `updateRecord` (T016); on failure, keep the user's unsaved input visible and show an
       actionable retry/correction path without claiming success (FR-016); on success, confirm it

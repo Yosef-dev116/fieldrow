@@ -25,6 +25,9 @@ export type LookupOutcome =
   | { kind: "found"; record: AssetRecord }
   | { kind: "duplicate" };
 
+/** Result of persisting field changes to a row (FR-015, FR-016) — never a false success. */
+export type UpdateResult = { ok: true } | { ok: false; reason: string };
+
 export type PhotoUploadState = "idle" | "uploading" | "uploaded" | "upload_failed";
 export type PhotoAttachState = "idle" | "attaching" | "attached" | "attach_failed";
 

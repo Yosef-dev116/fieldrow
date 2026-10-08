@@ -20,6 +20,7 @@ import {
 import { useStoredConnection } from "../src/connection/useStoredConnection";
 import { getErrorMessage } from "../src/errors";
 import { useThemeColors } from "../src/theme";
+import { isEditableFieldType } from "../src/baserow/types";
 import type { FieldSummary, TableSummary } from "../src/baserow/types";
 import type { Connection } from "../src/types";
 
@@ -239,7 +240,7 @@ export default function ConnectScreen() {
             ))}
 
             <Text style={[styles.label, { color: colors.text }]}>Editable fields</Text>
-            {step.fields.map((field) => {
+            {step.fields.filter((field) => isEditableFieldType(field.type)).map((field) => {
               const id = String(field.id);
               const selected = step.editableFieldIds.includes(id);
               return (

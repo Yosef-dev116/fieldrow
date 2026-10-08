@@ -1,4 +1,4 @@
-import type { AssetRecord, Connection, FieldConfiguration, LookupOutcome } from "../types";
+import type { AssetRecord, Connection, FieldConfiguration, LookupOutcome, UpdateResult } from "../types";
 import type { BaserowRow, FieldSummary, TableSummary } from "./types";
 
 /**
@@ -8,8 +8,13 @@ import type { BaserowRow, FieldSummary, TableSummary } from "./types";
  * read or write a row. Field *names* (for on-screen labels) come from listFields separately,
  * which also means labels stay correct if a field is renamed after configuration.
  */
-function rowFieldKey(fieldId: string): string {
+export function rowFieldKey(fieldId: string): string {
   return `field_${fieldId}`;
+}
+
+/** Inverse of `rowFieldKey`: recovers the field id from a row key, passing non-field keys (e.g. `id`) through untouched. */
+export function fieldIdFromRowKey(key: string): string {
+  return key.startsWith("field_") ? key.slice("field_".length) : key;
 }
 
 async function baserowRequest(
@@ -110,4 +115,32 @@ export async function lookupByBarcode(
     return { kind: "duplicate" };
   }
   return { kind: "found", record: rowToAssetRecord(body.results[0], fieldConfig) };
+}
+
+/**
+ * Persists exactly `editableValues` to the row — the request body contains only those keys, so
+ * no other row value can be overwritten (FR-014, FR-015). Never throws: failures resolve to
+ * `{ ok: false }` so the caller can keep the user's unsaved input on screen (FR-016).
+ */
+export async function updateRecord(
+  connection: Connection,
+  fieldConfig: FieldConfiguration,
+  rowId: string | number,
+  editableValues: Record<string, unknown>
+): Promise<UpdateResult> {
+  try {
+    await baserowRequest(
+      connection,
+      `/api/database/rows/table/${fieldConfig.tableId}/${rowId}/`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editableValues),
+      },
+      "This record could not be found. It may have been deleted."
+    );
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: (error as Error).message };
+  }
 }
