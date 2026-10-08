@@ -12,6 +12,11 @@ export function rowFieldKey(fieldId: string): string {
   return `field_${fieldId}`;
 }
 
+/** Inverse of `rowFieldKey`: recovers the field id from a row key, passing non-field keys (e.g. `id`) through untouched. */
+export function fieldIdFromRowKey(key: string): string {
+  return key.startsWith("field_") ? key.slice("field_".length) : key;
+}
+
 async function baserowRequest(
   connection: Connection,
   path: string,

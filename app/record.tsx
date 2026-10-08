@@ -3,10 +3,10 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { listFields, rowFieldKey, updateRecord } from "../src/baserow/client";
+import { fieldIdFromRowKey, listFields, rowFieldKey, updateRecord } from "../src/baserow/client";
 import { useStoredConnection } from "../src/connection/useStoredConnection";
-import { getErrorMessage } from "../src/errors";
 import { useThemeColors } from "../src/theme";
+import { isEditableFieldType } from "../src/baserow/types";
 import type { FieldSummary } from "../src/baserow/types";
 import type { AssetRecord } from "../src/types";
 
@@ -15,7 +15,17 @@ function parseRecord(raw: string | string[] | undefined): AssetRecord | null {
     return null;
   }
   try {
-    return JSON.parse(raw) as AssetRecord;
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      !("displayFields" in parsed) ||
+      typeof (parsed as AssetRecord).displayFields !== "object" ||
+      (parsed as AssetRecord).displayFields === null
+    ) {
+      return null;
+    }
+    return parsed as AssetRecord;
   } catch {
     return null;
   }
@@ -35,6 +45,7 @@ export default function RecordScreen() {
     }
     return initial;
   });
+  const initialValuesRef = useRef(values);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
@@ -66,14 +77,21 @@ export default function RecordScreen() {
     inFlightRef.current = true;
     setSaveState("saving");
     setSaveError(null);
+    const changedValues: Record<string, string> = {};
+    for (const [key, value] of Object.entries(values)) {
+      if (initialValuesRef.current[key] !== value) {
+        changedValues[key] = value;
+      }
+    }
     const result = await updateRecord(
       stored.state.connection,
       stored.state.fieldConfiguration,
       record.rowId,
-      values
+      changedValues
     );
     inFlightRef.current = false;
     if (result.ok) {
+      initialValuesRef.current = values;
       setSaveState("saved");
     } else {
       setSaveState("error");
@@ -99,9 +117,14 @@ export default function RecordScreen() {
         <Text style={[styles.title, { color: colors.text }]}>Asset Record</Text>
 
         {rows.map(([key, value]) => {
-          const fieldId = key.startsWith("field_") ? key.slice("field_".length) : key;
+          const fieldId = fieldIdFromRowKey(key);
           const label = fieldNameById.get(fieldId) ?? fieldId;
-          const editable = editableFieldIds.includes(fieldId);
+          // Fields is only populated once listFields resolves; until then, fall back to the
+          // configured editableFieldIds alone rather than hiding every field as read-only.
+          const fieldType = fields?.find((field) => String(field.id) === fieldId)?.type;
+          const editable =
+            editableFieldIds.includes(fieldId) &&
+            (fieldType === undefined || isEditableFieldType(fieldType));
           return (
             <View key={key}>
               <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
@@ -110,9 +133,11 @@ export default function RecordScreen() {
                   accessibilityLabel={`Edit ${label}`}
                   style={[styles.input, { color: colors.text, borderColor: colors.border }]}
                   value={values[rowFieldKey(fieldId)] ?? ""}
-                  onChangeText={(text) =>
-                    setValues((prev) => ({ ...prev, [rowFieldKey(fieldId)]: text }))
-                  }
+                  onChangeText={(text) => {
+                    setValues((prev) => ({ ...prev, [rowFieldKey(fieldId)]: text }));
+                    setSaveState("idle");
+                    setSaveError(null);
+                  }}
                 />
               ) : (
                 <Text style={[styles.readOnlyValue, { color: colors.text }]}>
