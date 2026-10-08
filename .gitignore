@@ -1,0 +1,3 @@
+# Machine-local Impeccable runtime state (pid, loopback port, heartbeat, logs) —
+# not meant to be shared.
+.impeccable/
