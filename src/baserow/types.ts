@@ -20,8 +20,10 @@ export type FieldSummary = {
 };
 
 /**
- * A Baserow row, requested with `user_field_names=true` so keys are field names. `id` is
- * Baserow's own row identifier, always present.
+ * A Baserow row, requested without `user_field_names` so keys are Baserow's default
+ * `field_<id>` form (see `src/baserow/client.ts`'s `rowFieldKey`) — this keeps row keys aligned
+ * with `FieldConfiguration`'s id-based fields. `id` is Baserow's own row identifier, always
+ * present.
  */
 export type BaserowRow = { id: number } & Record<string, unknown>;
 

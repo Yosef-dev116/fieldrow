@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,7 +7,6 @@ import {
   Text,
   TextInput,
   View,
-  useColorScheme,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,16 +15,18 @@ import { listFields, listTables } from "../src/baserow/client";
 import {
   clearConnectionState,
   normalizeServerUrl,
-  readConnectionState,
   writeConnectionState,
 } from "../src/connection/storage";
+import { useStoredConnection } from "../src/connection/useStoredConnection";
+import { getErrorMessage } from "../src/errors";
+import { useThemeColors } from "../src/theme";
 import type { FieldSummary, TableSummary } from "../src/baserow/types";
 import type { Connection } from "../src/types";
 
 type Step =
   | { name: "loading" }
   | { name: "connect"; serverUrl: string; token: string; error: string | null; submitting: boolean }
-  | { name: "selectTable"; connection: Connection; tables: TableSummary[]; error: string | null }
+  | { name: "selectTable"; connection: Connection; tables: TableSummary[]; error: string | null; submitting: boolean }
   | {
       name: "selectFields";
       connection: Connection;
@@ -41,38 +42,30 @@ type Step =
 export default function ConnectScreen() {
   const router = useRouter();
   const { reconfigure } = useLocalSearchParams<{ reconfigure?: string }>();
-  const scheme = useColorScheme();
-  const colors = scheme === "dark" ? darkColors : lightColors;
+  const colors = useThemeColors();
+  const stored = useStoredConnection();
   const [step, setStep] = useState<Step>({ name: "loading" });
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const stored = await readConnectionState();
-      if (cancelled) {
-        return;
-      }
-      if (stored && reconfigure !== "1") {
-        router.replace("/scan");
-        return;
-      }
-      setStep({
-        name: "connect",
-        serverUrl: stored?.connection.serverUrl ?? "",
-        token: "",
-        error: null,
-        submitting: false,
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // Re-run only when the reconfigure intent changes, not on every router/step identity change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reconfigure]);
+    if (stored.status !== "ready") {
+      return;
+    }
+    if (stored.state && reconfigure !== "1") {
+      router.replace("/scan");
+      return;
+    }
+    setStep({
+      name: "connect",
+      serverUrl: stored.state?.connection.serverUrl ?? "",
+      token: "",
+      error: null,
+      submitting: false,
+    });
+  }, [stored, reconfigure, router]);
 
   const handleConnect = useCallback(async () => {
-    if (step.name !== "connect") {
+    if (step.name !== "connect" || inFlightRef.current) {
       return;
     }
     const connection: Connection = {
@@ -80,28 +73,41 @@ export default function ConnectScreen() {
       token: step.token.trim(),
     };
     if (!connection.serverUrl || !connection.token) {
-      setStep({ ...step, error: "Enter both the server URL and the database token." });
+      setStep((prev) =>
+        prev.name !== "connect"
+          ? prev
+          : { ...prev, error: "Enter both the server URL and the database token." }
+      );
       return;
     }
-    setStep({ ...step, submitting: true, error: null });
+    inFlightRef.current = true;
+    setStep((prev) => (prev.name !== "connect" ? prev : { ...prev, submitting: true, error: null }));
     try {
       const tables = await listTables(connection);
-      setStep({ name: "selectTable", connection, tables, error: null });
+      inFlightRef.current = false;
+      setStep({ name: "selectTable", connection, tables, error: null, submitting: false });
     } catch (error) {
-      setStep({ ...step, submitting: false, error: (error as Error).message });
+      inFlightRef.current = false;
+      setStep((prev) =>
+        prev.name !== "connect" ? prev : { ...prev, submitting: false, error: getErrorMessage(error) }
+      );
     }
   }, [step]);
 
   const handleSelectTable = useCallback(
     async (table: TableSummary) => {
-      if (step.name !== "selectTable") {
+      if (step.name !== "selectTable" || inFlightRef.current) {
         return;
       }
+      const { connection } = step;
+      inFlightRef.current = true;
+      setStep((prev) => (prev.name !== "selectTable" ? prev : { ...prev, submitting: true, error: null }));
       try {
-        const fields = await listFields(step.connection, String(table.id));
+        const fields = await listFields(connection, String(table.id));
+        inFlightRef.current = false;
         setStep({
           name: "selectFields",
-          connection: step.connection,
+          connection,
           tableId: String(table.id),
           fields,
           barcodeFieldId: null,
@@ -111,27 +117,35 @@ export default function ConnectScreen() {
           submitting: false,
         });
       } catch (error) {
-        setStep({ ...step, error: (error as Error).message });
+        inFlightRef.current = false;
+        setStep((prev) =>
+          prev.name !== "selectTable"
+            ? prev
+            : { ...prev, submitting: false, error: getErrorMessage(error) }
+        );
       }
     },
     [step]
   );
 
   const handleSave = useCallback(async () => {
-    if (step.name !== "selectFields" || !step.barcodeFieldId) {
+    if (step.name !== "selectFields" || !step.barcodeFieldId || inFlightRef.current) {
       return;
     }
-    setStep({ ...step, submitting: true, error: null });
+    const { connection, tableId, barcodeFieldId, editableFieldIds, photoFieldId } = step;
+    inFlightRef.current = true;
+    setStep((prev) => (prev.name !== "selectFields" ? prev : { ...prev, submitting: true, error: null }));
     try {
-      await writeConnectionState(step.connection, {
-        tableId: step.tableId,
-        barcodeFieldId: step.barcodeFieldId,
-        editableFieldIds: step.editableFieldIds,
-        photoFieldId: step.photoFieldId,
-      });
+      await writeConnectionState(connection, { tableId, barcodeFieldId, editableFieldIds, photoFieldId });
+      inFlightRef.current = false;
       router.replace("/scan");
     } catch (error) {
-      setStep({ ...step, submitting: false, error: (error as Error).message });
+      inFlightRef.current = false;
+      setStep((prev) =>
+        prev.name !== "selectFields"
+          ? prev
+          : { ...prev, submitting: false, error: getErrorMessage(error) }
+      );
     }
   }, [step, router]);
 
@@ -197,7 +211,9 @@ export default function ConnectScreen() {
                 key={table.id}
                 accessibilityRole="button"
                 accessibilityLabel={`Table: ${table.name}`}
-                style={[styles.row, { borderColor: colors.border }]}
+                accessibilityState={{ disabled: step.submitting }}
+                disabled={step.submitting}
+                style={[styles.row, { borderColor: colors.border }, step.submitting && styles.buttonDisabled]}
                 onPress={() => handleSelectTable(table)}
               >
                 <Text style={{ color: colors.text }}>{table.name}</Text>
@@ -210,20 +226,16 @@ export default function ConnectScreen() {
           <View>
             <Text style={[styles.label, { color: colors.text }]}>Barcode field (required)</Text>
             {step.fields.map((field) => (
-              <Pressable
+              <FieldOptionRow
                 key={`barcode-${field.id}`}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: step.barcodeFieldId === String(field.id) }}
+                role="radio"
+                label={field.name}
                 accessibilityLabel={`Barcode field: ${field.name}`}
-                style={[
-                  styles.row,
-                  { borderColor: colors.border },
-                  step.barcodeFieldId === String(field.id) && styles.rowSelected,
-                ]}
+                selected={step.barcodeFieldId === String(field.id)}
+                color={colors.text}
+                borderColor={colors.border}
                 onPress={() => setStep({ ...step, barcodeFieldId: String(field.id) })}
-              >
-                <Text style={{ color: colors.text }}>{field.name}</Text>
-              </Pressable>
+              />
             ))}
 
             <Text style={[styles.label, { color: colors.text }]}>Editable fields</Text>
@@ -231,12 +243,14 @@ export default function ConnectScreen() {
               const id = String(field.id);
               const selected = step.editableFieldIds.includes(id);
               return (
-                <Pressable
+                <FieldOptionRow
                   key={`editable-${field.id}`}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: selected }}
+                  role="checkbox"
+                  label={field.name}
                   accessibilityLabel={`Editable field: ${field.name}`}
-                  style={[styles.row, { borderColor: colors.border }, selected && styles.rowSelected]}
+                  selected={selected}
+                  color={colors.text}
+                  borderColor={colors.border}
                   onPress={() =>
                     setStep({
                       ...step,
@@ -245,37 +259,31 @@ export default function ConnectScreen() {
                         : [...step.editableFieldIds, id],
                     })
                   }
-                >
-                  <Text style={{ color: colors.text }}>{field.name}</Text>
-                </Pressable>
+                />
               );
             })}
 
             <Text style={[styles.label, { color: colors.text }]}>Photo field (optional)</Text>
-            <Pressable
-              accessibilityRole="radio"
-              accessibilityState={{ selected: step.photoFieldId === null }}
+            <FieldOptionRow
+              role="radio"
+              label="None"
               accessibilityLabel="No photo field"
-              style={[styles.row, { borderColor: colors.border }, step.photoFieldId === null && styles.rowSelected]}
+              selected={step.photoFieldId === null}
+              color={colors.text}
+              borderColor={colors.border}
               onPress={() => setStep({ ...step, photoFieldId: null })}
-            >
-              <Text style={{ color: colors.text }}>None</Text>
-            </Pressable>
+            />
             {step.fields.map((field) => (
-              <Pressable
+              <FieldOptionRow
                 key={`photo-${field.id}`}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: step.photoFieldId === String(field.id) }}
+                role="radio"
+                label={field.name}
                 accessibilityLabel={`Photo field: ${field.name}`}
-                style={[
-                  styles.row,
-                  { borderColor: colors.border },
-                  step.photoFieldId === String(field.id) && styles.rowSelected,
-                ]}
+                selected={step.photoFieldId === String(field.id)}
+                color={colors.text}
+                borderColor={colors.border}
                 onPress={() => setStep({ ...step, photoFieldId: String(field.id) })}
-              >
-                <Text style={{ color: colors.text }}>{field.name}</Text>
-              </Pressable>
+              />
             ))}
 
             {step.error && <Text style={styles.error}>{step.error}</Text>}
@@ -313,19 +321,35 @@ export default function ConnectScreen() {
   );
 }
 
-const lightColors = {
-  background: "#ffffff",
-  text: "#111111",
-  border: "#cccccc",
-  placeholder: "#888888",
-};
-
-const darkColors = {
-  background: "#111111",
-  text: "#ffffff",
-  border: "#444444",
-  placeholder: "#888888",
-};
+function FieldOptionRow({
+  role,
+  label,
+  accessibilityLabel,
+  selected,
+  color,
+  borderColor,
+  onPress,
+}: {
+  role: "radio" | "checkbox";
+  label: string;
+  accessibilityLabel: string;
+  selected: boolean;
+  color: string;
+  borderColor: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole={role}
+      accessibilityState={role === "radio" ? { selected } : { checked: selected }}
+      accessibilityLabel={accessibilityLabel}
+      style={[styles.row, { borderColor }, selected && styles.rowSelected]}
+      onPress={onPress}
+    >
+      <Text style={{ color }}>{label}</Text>
+    </Pressable>
+  );
+}
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },

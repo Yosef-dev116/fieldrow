@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { lookupByBarcode } from "../src/baserow/client";
-import { readConnectionState } from "../src/connection/storage";
+import { useStoredConnection } from "../src/connection/useStoredConnection";
+import { getErrorMessage } from "../src/errors";
+import { useThemeColors } from "../src/theme";
 import type { Connection, FieldConfiguration } from "../src/types";
 
 type ScanState =
-  | { phase: "loadingConfig" }
   | { phase: "scanning" }
   | { phase: "lookingUp" }
   | { phase: "none" }
@@ -18,31 +19,35 @@ type ScanState =
 
 export default function ScanScreen() {
   const router = useRouter();
-  const scheme = useColorScheme();
-  const colors = scheme === "dark" ? darkColors : lightColors;
+  const colors = useThemeColors();
+  const stored = useStoredConnection();
   const [permission, requestPermission] = useCameraPermissions();
   const [config, setConfig] = useState<
     { connection: Connection; fieldConfiguration: FieldConfiguration } | null
   >(null);
-  const [state, setState] = useState<ScanState>({ phase: "loadingConfig" });
+  const [state, setState] = useState<ScanState>({ phase: "scanning" });
+  // Synchronous lock, independent of React's render timing: CameraView can fire
+  // onBarcodeScanned more than once for the same code before a state update commits and
+  // unmounts it, so the guard against re-entrant lookups can't live in render-derived state.
+  const scanLockRef = useRef(false);
 
   useEffect(() => {
-    (async () => {
-      const stored = await readConnectionState();
-      if (!stored) {
-        router.replace("/");
-        return;
-      }
-      setConfig(stored);
-      setState({ phase: "scanning" });
-    })();
-  }, [router]);
+    if (stored.status !== "ready") {
+      return;
+    }
+    if (!stored.state) {
+      router.replace("/");
+      return;
+    }
+    setConfig(stored.state);
+  }, [stored, router]);
 
   const handleScanned = useCallback(
     async (scannedValue: string) => {
-      if (!config || state.phase !== "scanning") {
+      if (!config || scanLockRef.current) {
         return;
       }
+      scanLockRef.current = true;
       setState({ phase: "lookingUp" });
       try {
         const outcome = await lookupByBarcode(config.connection, config.fieldConfiguration, scannedValue);
@@ -51,6 +56,7 @@ export default function ScanScreen() {
             pathname: "/record",
             params: { record: JSON.stringify(outcome.record) },
           });
+          scanLockRef.current = false;
           setState({ phase: "scanning" });
         } else if (outcome.kind === "none") {
           setState({ phase: "none" });
@@ -58,13 +64,16 @@ export default function ScanScreen() {
           setState({ phase: "duplicate" });
         }
       } catch (error) {
-        setState({ phase: "error", message: (error as Error).message });
+        setState({ phase: "error", message: getErrorMessage(error) });
       }
     },
-    [config, state.phase, router]
+    [config, router]
   );
 
-  const resetToScanning = useCallback(() => setState({ phase: "scanning" }), []);
+  const resetToScanning = useCallback(() => {
+    scanLockRef.current = false;
+    setState({ phase: "scanning" });
+  }, []);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -82,19 +91,12 @@ export default function ScanScreen() {
       {!permission && <ActivityIndicator accessibilityLabel="Loading" />}
 
       {permission && !permission.granted && (
-        <View style={styles.centered}>
-          <Text style={[styles.message, { color: colors.text }]}>
-            Fieldrow needs camera access to scan barcodes.
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Grant camera access"
-            style={styles.button}
-            onPress={requestPermission}
-          >
-            <Text style={styles.buttonText}>Grant camera access</Text>
-          </Pressable>
-        </View>
+        <RetryPanel
+          message="Fieldrow needs camera access to scan barcodes."
+          buttonLabel="Grant camera access"
+          textColor={colors.text}
+          onRetry={requestPermission}
+        />
       )}
 
       {permission?.granted && state.phase === "scanning" && (
@@ -113,57 +115,60 @@ export default function ScanScreen() {
       )}
 
       {state.phase === "none" && (
-        <View style={styles.centered}>
-          <Text style={[styles.message, { color: colors.text }]}>
-            No record matches that code.
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Scan again"
-            style={styles.button}
-            onPress={resetToScanning}
-          >
-            <Text style={styles.buttonText}>Scan again</Text>
-          </Pressable>
-        </View>
+        <RetryPanel
+          message="No record matches that code."
+          buttonLabel="Scan again"
+          textColor={colors.text}
+          onRetry={resetToScanning}
+        />
       )}
 
       {state.phase === "duplicate" && (
-        <View style={styles.centered}>
-          <Text style={[styles.message, { color: colors.text }]}>
-            More than one record has this code. Fix the duplicate in Baserow before scanning it
-            again.
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Scan again"
-            style={styles.button}
-            onPress={resetToScanning}
-          >
-            <Text style={styles.buttonText}>Scan again</Text>
-          </Pressable>
-        </View>
+        <RetryPanel
+          message="More than one record has this code. Fix the duplicate in Baserow before scanning it again."
+          buttonLabel="Scan again"
+          textColor={colors.text}
+          onRetry={resetToScanning}
+        />
       )}
 
       {state.phase === "error" && (
-        <View style={styles.centered}>
-          <Text style={styles.error}>{state.message}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Try again"
-            style={styles.button}
-            onPress={resetToScanning}
-          >
-            <Text style={styles.buttonText}>Try again</Text>
-          </Pressable>
-        </View>
+        <RetryPanel
+          message={state.message}
+          buttonLabel="Try again"
+          textColor="#d33"
+          onRetry={resetToScanning}
+        />
       )}
     </SafeAreaView>
   );
 }
 
-const lightColors = { background: "#ffffff", text: "#111111" };
-const darkColors = { background: "#111111", text: "#ffffff" };
+function RetryPanel({
+  message,
+  buttonLabel,
+  textColor,
+  onRetry,
+}: {
+  message: string;
+  buttonLabel: string;
+  textColor: string;
+  onRetry: () => void;
+}) {
+  return (
+    <View style={styles.centered}>
+      <Text style={[styles.message, { color: textColor }]}>{message}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={buttonLabel}
+        style={styles.button}
+        onPress={onRetry}
+      >
+        <Text style={styles.buttonText}>{buttonLabel}</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
@@ -173,7 +178,6 @@ const styles = StyleSheet.create({
   camera: { flex: 1 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 },
   message: { fontSize: 16, textAlign: "center" },
-  error: { fontSize: 16, textAlign: "center", color: "#d33" },
   button: {
     backgroundColor: "#2563eb",
     borderRadius: 8,

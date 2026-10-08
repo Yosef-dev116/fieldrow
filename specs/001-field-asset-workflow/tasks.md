@@ -126,8 +126,11 @@ values, scan each value, and verify that only a unique exact match opens a recor
       (FR-007, FR-008, FR-011, FR-012). Same accessibility/appearance requirements as T013
       (FR-020).
 
-**Checkpoint**: User Story 1 is fully functional and independently testable via
-[quickstart.md](./quickstart.md)'s User Story 1 scenario.
+**Checkpoint**: User Story 1's own scope — connect, configure, scan, and get the correct
+no-match/found/duplicate outcome — is functional and independently testable. On `found`, Scan
+navigates to `/record`; that screen's content is built in User Story 2 (T017), so
+[quickstart.md](./quickstart.md)'s User Story 1 scenario can be run through step 3 (the record
+opens) but steps that inspect the record's content depend on that later phase.
 
 ---
 
