@@ -120,18 +120,20 @@ export default function RecordScreen() {
 
   const photoFieldId =
     stored.status === "ready" ? stored.state?.fieldConfiguration.photoFieldId ?? null : null;
-  const existingAttachments: BaserowFile[] =
-    photoFieldId && record
-      ? ((record.displayFields[rowFieldKey(photoFieldId)] as BaserowFile[] | undefined) ?? [])
-      : [];
+  const existingAttachments: BaserowFile[] = useMemo(
+    () =>
+      photoFieldId && record
+        ? ((record.displayFields[rowFieldKey(photoFieldId)] as BaserowFile[] | undefined) ?? [])
+        : [],
+    [photoFieldId, record]
+  );
 
   const handleStartCapture = useCallback(async () => {
     if (!permission?.granted) {
-      const result = await requestPermission();
-      if (!result.granted) {
-        return;
-      }
+      await requestPermission();
     }
+    // Always move to "capturing" — the render below shows the camera when permission was
+    // granted and a denial explanation otherwise, so denial is never silently dropped (FR-007).
     setPhotoState({ phase: "capturing" });
   }, [permission, requestPermission]);
 
@@ -143,21 +145,28 @@ export default function RecordScreen() {
     if (!camera) {
       return;
     }
-    const photo = await camera.takePictureAsync();
-    if (!photo) {
-      return;
-    }
+    // Set before awaiting the capture itself (not after) so a second tap during the capture
+    // can't start a concurrent capture/upload against the same stale existingAttachments.
     photoInFlightRef.current = true;
-    setPhotoState({ phase: "uploading" });
-    const result = await uploadAndAttachPhoto(
-      stored.state.connection,
-      stored.state.fieldConfiguration,
-      record.rowId,
-      photo.uri,
-      existingAttachments
-    );
-    photoInFlightRef.current = false;
-    setPhotoState(result.ok ? { phase: "done" } : { phase: "error", message: result.reason });
+    try {
+      const photo = await camera.takePictureAsync();
+      if (!photo) {
+        return;
+      }
+      setPhotoState({ phase: "uploading" });
+      const result = await uploadAndAttachPhoto(
+        stored.state.connection,
+        stored.state.fieldConfiguration,
+        record.rowId,
+        photo.uri,
+        existingAttachments
+      );
+      setPhotoState(result.ok ? { phase: "done" } : { phase: "error", message: result.reason });
+    } catch {
+      setPhotoState({ phase: "error", message: "Couldn't capture the photo. Try again." });
+    } finally {
+      photoInFlightRef.current = false;
+    }
   }, [stored, record, existingAttachments]);
 
   if (!record) {
