@@ -79,3 +79,7 @@ A captured image plus its upload and attachment state for one Asset Record (FR-0
 upload/attachment success — a save is never presented as fully complete unless both the field
 update (if any fields changed) and the photo attachment (if a photo was captured) succeeded
 (FR-018).
+
+**Rule**: attaching the new photo MUST NOT drop any files already on the photo field — the attach
+step writes the prior attachments plus the new one, not the new one alone (FR-014; see
+[contracts/baserow-client.md](./contracts/baserow-client.md)'s `uploadAndAttachPhoto`).

@@ -33,7 +33,8 @@ default Expo project (see Constitution Check). A live Baserow test table (per sp
 is used for manual verification of the quickstart scenarios before release, as required by the
 constitution's Development Workflow gate.
 
-**Target Platform**: iOS 15+ and Android (API 26+) through one adaptive Expo app; no web target.
+**Target Platform**: iOS 16.4+ (Expo SDK 57's floor) and Android API 26+ through one adaptive
+Expo app; no web target.
 
 **Project Type**: Mobile app, single Expo project, no separate backend/API project.
 

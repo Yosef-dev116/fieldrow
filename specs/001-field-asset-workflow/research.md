@@ -15,8 +15,8 @@ rationale survives independent of that conversation.
   constitution's Native Simplicity principle favors the smallest dependable implementation.
 - **Alternatives considered**: A backend proxy (rejected — unnecessary moving part for v0, no
   multi-tenant or server-side secret requirement exists yet); a Baserow SDK/client library
-  (rejected — v0 needs three endpoints: row filter/list, row update, file upload; native `fetch`
-  covers this without a new dependency).
+  (rejected — v0 needs five endpoints: table listing, field listing, row filter/list, row update,
+  file upload; native `fetch` covers this without a new dependency).
 
 ## Decision: Expo Router for navigation
 
@@ -43,7 +43,8 @@ rationale survives independent of that conversation.
 
 ## Decision: `expo-camera` for both barcode scanning and photo capture
 
-- **Decision**: Use `expo-camera`'s `CameraView` — its `barcodeScannerEnabled`/
+- **Decision**: Use `expo-camera`'s `CameraView` — its `barcodeScannerSettings={{ barcodeTypes:
+  [...] }}` prop (listing QR, Code 128, and EAN, per the spec's device-capability Assumption) with
   `onBarcodeScanned` for Scan, and its photo-capture method for the Record screen's attachment
   step.
 - **Rationale**: One camera dependency covers both FR-008 (scan) and FR-017 (photo capture)

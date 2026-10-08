@@ -18,8 +18,10 @@ exercises indirectly through the UI.
   (needed for User Story 1's three outcomes).
 - A restricted Baserow database token scoped to that table with read, update, and file
   permissions.
-- iOS simulator or device, and/or Android emulator or device, with Expo Go or a dev build
-  installed.
+- A physical iOS and/or Android device with Expo Go or a dev build installed —
+  `expo-camera`'s `CameraView` does not run on the iOS Simulator or Android Emulator, and every
+  scenario below scans or captures a photo. A simulator/emulator is not a substitute for any step
+  in this guide.
 
 ## Setup
 
@@ -28,7 +30,8 @@ npm install
 npx expo start
 ```
 
-Open the app on a simulator/device/emulator from the Expo CLI output.
+Open the app on a physical device from the Expo CLI output — every scenario below needs the
+camera, which the iOS Simulator and Android Emulator cannot provide.
 
 ## Scenario: User Story 1 — Find the Correct Asset
 

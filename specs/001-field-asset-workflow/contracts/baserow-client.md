@@ -47,11 +47,17 @@ screen (validate, then populate the table/field pickers), three back Scan and Re
   Baserow, app backgrounded mid-request (Edge Cases) — all surface as `{ ok: false }`, never a
   false success.
 
-## `uploadAndAttachPhoto(connection, fieldConfig, rowId, localUri): Promise<PhotoAttachResult>`
+## `uploadAndAttachPhoto(connection, fieldConfig, rowId, localUri, existingAttachments): Promise<PhotoAttachResult>`
 
-- **Input**: `localUri` from `expo-camera` capture.
-- **Behavior**: Two sequential steps — upload the file to Baserow, then attach it to the row's
-  configured photo field. The result distinguishes which step failed (FR-017, FR-018).
+- **Input**: `localUri` from `expo-camera` capture; `existingAttachments` — the photo field's
+  current file array, read from the already-loaded `AssetRecord.displayFields` (no extra fetch
+  needed, since the record was already loaded by `lookupByBarcode`).
+- **Behavior**: Two sequential steps — upload the file to Baserow, then `PATCH` the row's
+  configured photo field with `[...existingAttachments, uploadedFile]`. Baserow replaces a file
+  field's entire array on write, so the attach step MUST include the prior attachments or they
+  are silently dropped (FR-014's "preserve all other row values" applies to the photo field's own
+  prior contents, not just other fields). The result distinguishes which step failed (FR-017,
+  FR-018).
 - **Output**:
   ```ts
   type PhotoAttachResult =
