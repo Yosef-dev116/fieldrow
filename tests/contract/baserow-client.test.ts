@@ -1,4 +1,10 @@
-import { listFields, listTables, lookupByBarcode, updateRecord } from "../../src/baserow/client";
+import {
+  listFields,
+  listTables,
+  lookupByBarcode,
+  updateRecord,
+  uploadAndAttachPhoto,
+} from "../../src/baserow/client";
 import type { Connection, FieldConfiguration } from "../../src/types";
 
 const connection: Connection = {
@@ -171,5 +177,82 @@ describe("updateRecord", () => {
     mockFetchResolve(400, { error: "ERROR_REQUEST_BODY_VALIDATION" });
     const result = await updateRecord(connection, fieldConfig, 42, { field_11: "x" });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("uploadAndAttachPhoto", () => {
+  const fieldConfig: FieldConfiguration = {
+    tableId: "5",
+    barcodeFieldId: "10",
+    editableFieldIds: ["11"],
+    photoFieldId: "12",
+  };
+  const existingAttachments = [{ name: "old-photo.jpg" }];
+
+  it("attaches the upload alongside the existing attachments, never dropping them", async () => {
+    mockFetchResolve(200, { name: "new-photo.jpg", size: 1234 });
+    mockFetchResolve(200, {});
+    await expect(
+      uploadAndAttachPhoto(connection, fieldConfig, 42, "file:///tmp/new-photo.jpg", existingAttachments)
+    ).resolves.toEqual({ ok: true });
+
+    const [, attachInit] = (globalThis.fetch as jest.Mock).mock.calls[1];
+    expect(JSON.parse(attachInit.body)).toEqual({
+      field_12: [{ name: "old-photo.jpg" }, { name: "new-photo.jpg", size: 1234 }],
+    });
+  });
+
+  it("returns failedStep: upload when the upload itself fails, without attempting to attach", async () => {
+    mockFetchResolve(500, {});
+    const result = await uploadAndAttachPhoto(
+      connection,
+      fieldConfig,
+      42,
+      "file:///tmp/new-photo.jpg",
+      existingAttachments
+    );
+    expect(result).toEqual({ ok: false, failedStep: "upload", reason: expect.any(String) });
+    expect((globalThis.fetch as jest.Mock).mock.calls).toHaveLength(1);
+  });
+
+  it("returns failedStep: upload when the file is too large (413)", async () => {
+    mockFetchResolve(413, {});
+    const result = await uploadAndAttachPhoto(
+      connection,
+      fieldConfig,
+      42,
+      "file:///tmp/new-photo.jpg",
+      existingAttachments
+    );
+    expect(result).toEqual({
+      ok: false,
+      failedStep: "upload",
+      reason: expect.stringMatching(/too large/i),
+    });
+  });
+
+  it("returns failedStep: attach when the upload succeeds but the attach PATCH fails", async () => {
+    mockFetchResolve(200, { name: "new-photo.jpg" });
+    mockFetchResolve(400, {});
+    const result = await uploadAndAttachPhoto(
+      connection,
+      fieldConfig,
+      42,
+      "file:///tmp/new-photo.jpg",
+      existingAttachments
+    );
+    expect(result).toEqual({ ok: false, failedStep: "attach", reason: expect.any(String) });
+  });
+
+  it("returns failedStep: attach without uploading when no photo field is configured", async () => {
+    const result = await uploadAndAttachPhoto(
+      connection,
+      { ...fieldConfig, photoFieldId: null },
+      42,
+      "file:///tmp/new-photo.jpg",
+      existingAttachments
+    );
+    expect(result).toEqual({ ok: false, failedStep: "attach", reason: expect.any(String) });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });

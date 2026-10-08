@@ -176,7 +176,7 @@ that the photo appears on that record (per spec.md).
 
 ### Tests for User Story 3
 
-- [ ] T018 [US3] Contract tests for `uploadAndAttachPhoto` in
+- [X] T018 [US3] Contract tests for `uploadAndAttachPhoto` in
       `tests/contract/baserow-client.test.ts` (same file as prior contract tests — sequential):
       a successful run attaches `[...existingAttachments, uploadedFile]`, never dropping prior
       attachments (FR-014, data-model.md's Photo Attachment preservation rule); upload failure
@@ -185,11 +185,11 @@ that the photo appears on that record (per spec.md).
 
 ### Implementation for User Story 3
 
-- [ ] T019 [US3] Implement `uploadAndAttachPhoto(connection, fieldConfig, rowId, localUri,
+- [X] T019 [US3] Implement `uploadAndAttachPhoto(connection, fieldConfig, rowId, localUri,
       existingAttachments)` in `src/baserow/client.ts`: upload the file, then `PATCH` the photo
       field with the existing attachments plus the new one (never the new one alone) — satisfies
       T018.
-- [ ] T020 [US3] Build photo capture in `app/record.tsx`: request camera permission only when the
+- [X] T020 [US3] Build photo capture in `app/record.tsx`: request camera permission only when the
       user initiates capture and explain denied access without blocking record editing (FR-007,
       Acceptance Scenario 3.3); on capture, call `uploadAndAttachPhoto` (T019) with the
       `existingAttachments` already present in the loaded `AssetRecord.displayFields`; report

@@ -1,5 +1,12 @@
-import type { AssetRecord, Connection, FieldConfiguration, LookupOutcome, UpdateResult } from "../types";
-import type { BaserowRow, FieldSummary, TableSummary } from "./types";
+import type {
+  AssetRecord,
+  Connection,
+  FieldConfiguration,
+  LookupOutcome,
+  PhotoAttachResult,
+  UpdateResult,
+} from "../types";
+import type { BaserowFile, BaserowRow, FieldSummary, TableSummary } from "./types";
 
 /**
  * Rows are read and written using Baserow's `field_<id>` keys (user_field_names is left off),
@@ -142,5 +149,81 @@ export async function updateRecord(
     return { ok: true };
   } catch (error) {
     return { ok: false, reason: (error as Error).message };
+  }
+}
+
+async function uploadFile(connection: Connection, localUri: string): Promise<BaserowFile> {
+  const filename = localUri.split("/").pop() || "photo.jpg";
+  const formData = new FormData();
+  // React Native's FormData accepts this { uri, name, type } shape at runtime; the DOM lib's
+  // FormData.append type only knows about string/Blob, hence the cast.
+  formData.append(
+    "file",
+    { uri: localUri, name: filename, type: "image/jpeg" } as unknown as Blob
+  );
+
+  let response: Response;
+  try {
+    response = await fetch(`${connection.serverUrl}/api/user-files/upload-file/`, {
+      method: "POST",
+      headers: { Authorization: `Token ${connection.token}` },
+      body: formData,
+    });
+  } catch {
+    throw new Error("Couldn't reach the Baserow server. Check your network connection.");
+  }
+
+  if (response.status === 413) {
+    throw new Error("This photo is too large for the server to accept.");
+  }
+  if (!response.ok) {
+    throw new Error("The Baserow server rejected the photo upload.");
+  }
+  try {
+    return (await response.json()) as BaserowFile;
+  } catch {
+    throw new Error("The Baserow server returned an unexpected response.");
+  }
+}
+
+/**
+ * Uploads `localUri`, then attaches it to the configured photo field alongside
+ * `existingAttachments` — Baserow replaces a file field's whole array on write, so omitting the
+ * prior attachments would silently delete them (FR-014's "preserve all other row values"
+ * extends to the photo field's own prior contents). `failedStep` distinguishes which half
+ * failed so a partial failure is never presented as a complete save (FR-017, FR-018).
+ */
+export async function uploadAndAttachPhoto(
+  connection: Connection,
+  fieldConfig: FieldConfiguration,
+  rowId: string | number,
+  localUri: string,
+  existingAttachments: BaserowFile[]
+): Promise<PhotoAttachResult> {
+  if (!fieldConfig.photoFieldId) {
+    return { ok: false, failedStep: "attach", reason: "No photo field is configured." };
+  }
+  let uploadedFile: BaserowFile;
+  try {
+    uploadedFile = await uploadFile(connection, localUri);
+  } catch (error) {
+    return { ok: false, failedStep: "upload", reason: (error as Error).message };
+  }
+  try {
+    await baserowRequest(
+      connection,
+      `/api/database/rows/table/${fieldConfig.tableId}/${rowId}/`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          [rowFieldKey(fieldConfig.photoFieldId)]: [...existingAttachments, uploadedFile],
+        }),
+      },
+      "This record could not be found. It may have been deleted."
+    );
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, failedStep: "attach", reason: (error as Error).message };
   }
 }
