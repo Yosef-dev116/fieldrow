@@ -1,12 +1,20 @@
-/** A table the connection's token can access, from `GET /api/database/tables/all-tables/`. */
+/**
+ * A table the connection's token can access, from `GET /api/database/tables/all-tables/`. `id`
+ * is a Baserow integer id — convert explicitly (e.g. `String(table.id)`) when storing it in
+ * `FieldConfiguration`'s string-typed `tableId`.
+ */
 export type TableSummary = {
-  id: string;
+  id: number;
   name: string;
 };
 
-/** A field on a table, from `GET /api/database/fields/table/{tableId}/`. */
+/**
+ * A field on a table, from `GET /api/database/fields/table/{tableId}/`. `id` is a Baserow
+ * integer id — convert explicitly when storing it in `FieldConfiguration`'s string-typed field
+ * ids.
+ */
 export type FieldSummary = {
-  id: string;
+  id: number;
   name: string;
   type: string;
 };
