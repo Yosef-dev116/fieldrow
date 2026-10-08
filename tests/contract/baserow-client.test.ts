@@ -1,4 +1,4 @@
-import { listFields, listTables, lookupByBarcode } from "../../src/baserow/client";
+import { listFields, listTables, lookupByBarcode, updateRecord } from "../../src/baserow/client";
 import type { Connection, FieldConfiguration } from "../../src/types";
 
 const connection: Connection = {
@@ -125,5 +125,51 @@ describe("lookupByBarcode", () => {
     });
     const error = await captureRejection(lookupByBarcode(connection, fieldConfig, "ABC123"));
     expect(error.message).toMatch(/unexpected response/i);
+  });
+});
+
+describe("updateRecord", () => {
+  const fieldConfig: FieldConfiguration = {
+    tableId: "5",
+    barcodeFieldId: "10",
+    editableFieldIds: ["11"],
+    photoFieldId: "12",
+  };
+
+  it("returns ok:true only after Baserow confirms the write", async () => {
+    mockFetchResolve(200, { id: 42, field_11: "new value" });
+    await expect(updateRecord(connection, fieldConfig, 42, { field_11: "new value" })).resolves.toEqual({
+      ok: true,
+    });
+  });
+
+  it("sends exactly the given editableValues as the request body, nothing else", async () => {
+    mockFetchResolve(200, {});
+    await updateRecord(connection, fieldConfig, 42, { field_11: "new value" });
+    const [, init] = (globalThis.fetch as jest.Mock).mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ field_11: "new value" });
+    expect(init.method).toBe("PATCH");
+  });
+
+  it("returns ok:false on network loss, without throwing", async () => {
+    mockFetchRejectNetwork();
+    await expect(updateRecord(connection, fieldConfig, 42, { field_11: "x" })).resolves.toEqual({
+      ok: false,
+      reason: expect.stringMatching(/couldn't reach/i),
+    });
+  });
+
+  it("returns ok:false on permission denial, without throwing", async () => {
+    mockFetchResolve(403, {});
+    await expect(updateRecord(connection, fieldConfig, 42, { field_11: "x" })).resolves.toEqual({
+      ok: false,
+      reason: expect.stringMatching(/token/i),
+    });
+  });
+
+  it("returns ok:false when Baserow rejects the write (e.g. validation failure)", async () => {
+    mockFetchResolve(400, { error: "ERROR_REQUEST_BODY_VALIDATION" });
+    const result = await updateRecord(connection, fieldConfig, 42, { field_11: "x" });
+    expect(result.ok).toBe(false);
   });
 });
