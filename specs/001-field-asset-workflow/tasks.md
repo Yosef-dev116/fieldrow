@@ -1,8 +1,3 @@
----
-
-description: "Task list template for feature implementation"
----
-
 # Tasks: Mobile Field Asset Workflow
 
 **Input**: Design documents from `/specs/001-field-asset-workflow/`
@@ -36,12 +31,13 @@ Single Expo project per plan.md's Project Structure: `app/` (Expo Router screens
 
 - [ ] T001 Initialize the Expo SDK 57 (React Native 0.86) TypeScript app at the repository root
       so the result matches plan.md's `app/`, `src/`, `tests/` layout exactly.
-- [ ] T002 [P] Install and configure `expo-router`, `expo-camera`, `expo-secure-store` — add the
+- [ ] T002 Install and configure `expo-router`, `expo-camera`, `expo-secure-store` — add the
       `expo-router` scheme and the `expo-camera` config plugin to `app.json` per research.md's
       Decision entries for navigation and camera.
-- [ ] T003 [P] Install and configure `jest-expo` + `@testing-library/react-native` (test script
+- [ ] T003 Install and configure `jest-expo` + `@testing-library/react-native` (test script
       in `package.json`, `jest-expo` preset in jest config) per plan.md's Testing section — these
-      are the two dev-only dependencies counted in the Constitution Check.
+      are the two dev-only dependencies counted in the Constitution Check. Not `[P]` with T002:
+      both edit `package.json` and the lockfile.
 
 **Checkpoint**: `npx expo start` runs; `npm test` runs (no tests yet).
 
@@ -111,12 +107,17 @@ values, scan each value, and verify that only a unique exact match opens a recor
       `src/baserow/client.ts`, filtering for an exact text match on the configured barcode field
       and returning the discriminated `LookupOutcome` from T004 — never picks an arbitrary row on
       duplicates (FR-009–FR-012) — satisfies T009.
-- [ ] T013 [US1] Build the Connect/Configure screen in `app/index.tsx`: server URL + token entry,
-      calls `listTables`/`listFields` (T011) to validate the connection (FR-002) and populate the
-      table/barcode/editable/photo field pickers (FR-005), persists the result via
-      `src/connection/storage.ts` (T006), and on failure shows a corrective message that never
-      displays the token (FR-004 Edge Case, FR-019). Scalable text, dark mode, safe areas, and
-      minimum touch targets apply to this screen (FR-020).
+- [ ] T013 [US1] Build the Connect/Configure screen in `app/index.tsx`: on launch, load any
+      persisted connection/configuration via `src/connection/storage.ts` (T006) and skip straight
+      to Scan if it's already usable; otherwise show server URL + token entry, call
+      `listTables`/`listFields` (T011) to validate the connection (FR-002) and populate the
+      table/barcode/editable/photo field pickers (FR-005), and persist the result via T006. Also
+      provide a visible "replace connection" / "clear configuration" action that calls T006's
+      clear, satisfying FR-006's "retain... between launches and let the user replace or clear
+      it." On failure, show a corrective message that never displays the token (FR-004 Edge
+      Case, FR-019). FR-020 applies to this and every other screen: scalable text, screen-reader
+      labels, light and dark appearances, platform minimum touch targets, safe areas, and native
+      system back behavior.
 - [ ] T014 [US1] Build the Scan screen in `app/scan.tsx`: `expo-camera`'s `CameraView` with
       `barcodeScannerSettings={{ barcodeTypes: [...] }}` (QR, Code 128, EAN per spec.md's
       Assumptions) and `onBarcodeScanned` calling `lookupByBarcode` (T012); branches explicitly
@@ -233,7 +234,6 @@ this feature can ship.
 
 ### Parallel Opportunities
 
-- T002 and T003 (Setup) can run in parallel — different concerns, no shared file.
 - T005 and T007 (Foundational) can run in parallel with each other, but T004 (shared types) is a
   dependency for both and should land first.
 - T010 (connection storage unit test) can run in parallel with T008/T009 (contract tests) — they
@@ -242,13 +242,9 @@ this feature can ship.
 
 ---
 
-## Parallel Example: Setup + Foundational
+## Parallel Example: Foundational
 
 ```bash
-# After T001 (project init):
-Task: "Install and configure expo-router, expo-camera, expo-secure-store"
-Task: "Install and configure jest-expo + @testing-library/react-native"
-
 # After T004 (shared types):
 Task: "Create Baserow response types in src/baserow/types.ts"
 Task: "Create the Expo Router root layout in app/_layout.tsx"
