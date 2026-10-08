@@ -228,8 +228,8 @@ this feature can ship.
       signup requires email verification), scanning a real physical barcode (requires physically
       moving a camera, which this environment cannot do), and TalkBack/VoiceOver screen-reader
       verification. A temporary local stub of `readConnectionState()` was used to reach the Scan
-      screen for the above checks and was fully reverted before this commit (see commit history —
-      never part of any committed diff).
+      screen for the above checks — a working-tree-only edit, discarded with `git checkout` before
+      anything was staged or committed, so it never appears in this repo's history.
 - [X] T022 [P] Review every error path added in T011–T020 for credential safety: confirm no
       function logs or displays `connection.token` or a raw Baserow response body (FR-019,
       Constitution IV). Audited: zero `console.*` calls anywhere in `app/` or `src/`; the token
