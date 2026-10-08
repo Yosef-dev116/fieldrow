@@ -209,11 +209,27 @@ this feature can ship.
       physical Android test device against a live Baserow test table: all three user-story
       scenarios, the light/dark + enlarged-text + screen-reader accessibility pass (FR-020,
       SC-007), and the credential-safety check across logs/crash reports/screenshots (SC-008).
-      **Blocked in this environment**: no physical iOS/Android device and no live Baserow test
-      table are available to the agent. Everything verifiable without them — `npx tsc --noEmit`,
-      `npm test`, `npx expo-doctor` — passes as of the Polish-phase commit, and T022 below covers
-      the credential-safety half statically. The live-device run still needs to happen before
-      release; this checkbox is left unchecked deliberately rather than claimed.
+      **Partially verified, left unchecked — no live Baserow table available.** A physical Android
+      tablet (connected via adb) and the iOS Simulator were found in this environment and used for
+      real, non-mocked verification: the app was built and run for real (not just `tsc`/`jest`) on
+      both platforms via Expo Go, confirmed:
+      - Connect screen renders correctly in light **and** dark mode, on both platforms (live
+        `useColorScheme` switching, not just a snapshot).
+      - A real `fetch()` against an unreachable server URL produces the exact safe error string
+        ("Couldn't reach the Baserow server...") end-to-end on hardware — confirms the FR-019
+        token-safety behavior isn't just unit-tested, it holds under a real network stack.
+      - Camera permission flow is real on the Android device: the OS permission dialog is backed
+        by a genuine `android.permission.CAMERA` grant, and — independently confirming the
+        `recordAudioAndroid: false` app.json choice — `RECORD_AUDIO` is never requested/granted.
+      - Large system font scale (1.3x) didn't clip or break the Scan screen layout.
+      - No crash on launch on either platform.
+      What's still missing and needs a human: the actual barcode-lookup/field-update/photo-attach
+      flow against a live Baserow table (no account could be created autonomously — Baserow
+      signup requires email verification), scanning a real physical barcode (requires physically
+      moving a camera, which this environment cannot do), and TalkBack/VoiceOver screen-reader
+      verification. A temporary local stub of `readConnectionState()` was used to reach the Scan
+      screen for the above checks and was fully reverted before this commit (see commit history —
+      never part of any committed diff).
 - [X] T022 [P] Review every error path added in T011–T020 for credential safety: confirm no
       function logs or displays `connection.token` or a raw Baserow response body (FR-019,
       Constitution IV). Audited: zero `console.*` calls anywhere in `app/` or `src/`; the token
