@@ -33,3 +33,22 @@ export type BaserowRow = { id: number } & Record<string, unknown>;
  * passes through untouched.
  */
 export type BaserowFile = { name: string } & Record<string, unknown>;
+
+/**
+ * Baserow field types the v0 record editor can render/save as a plain string with no type
+ * coercion risk (data-model.md: "unsupported types remain readable but cannot be selected for
+ * editing"). The Configure screen's editable-field picker filters to this set; number, boolean,
+ * date, select, and relation types are excluded for v0 rather than risk writing a value Baserow
+ * rejects or silently coerces.
+ */
+const EDITABLE_FIELD_TYPES: ReadonlySet<string> = new Set([
+  "text",
+  "long_text",
+  "url",
+  "email",
+  "phone_number",
+]);
+
+export function isEditableFieldType(type: string): boolean {
+  return EDITABLE_FIELD_TYPES.has(type);
+}
