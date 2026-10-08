@@ -83,31 +83,31 @@ values, scan each value, and verify that only a unique exact match opens a recor
 
 ### Tests for User Story 1
 
-- [ ] T008 [US1] Contract tests for `listTables` and `listFields` in
+- [X] T008 [US1] Contract tests for `listTables` and `listFields` in
       `tests/contract/baserow-client.test.ts`: success returns the expected summaries; an
       unreachable `serverUrl` or an invalid/expired/revoked token fails without ever including
       the token in the error (FR-002, FR-019); a `tableId` that no longer exists fails as a
       configuration error, not a crash (Edge Case).
-- [ ] T009 [US1] Contract tests for `lookupByBarcode`'s three outcomes in
+- [X] T009 [US1] Contract tests for `lookupByBarcode`'s three outcomes in
       `tests/contract/baserow-client.test.ts` (same file as T008 — sequential, not `[P]`):
       zero matches → `{ kind: "none" }`, one match → `{ kind: "found", record }`, more than one
       → `{ kind: "duplicate" }` (FR-009–FR-012); plus network/timeout and malformed-response
       failure modes mapped to distinct, token-free error strings (FR-019).
-- [ ] T010 [P] [US1] Unit test for connection storage in
+- [X] T010 [P] [US1] Unit test for connection storage in
       `tests/unit/connection-storage.test.ts`: write → read round-trip returns the same
       `Connection`/`FieldConfiguration`; `serverUrl` trailing slash is normalized away; clearing
       removes the stored blob; no assertion ever logs or snapshots the token value (FR-003).
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Implement `listTables(connection)` and `listFields(connection, tableId)` in
+- [X] T011 [US1] Implement `listTables(connection)` and `listFields(connection, tableId)` in
       `src/baserow/client.ts` per [contracts/baserow-client.md](./contracts/baserow-client.md) —
       satisfies T008.
-- [ ] T012 [US1] Implement `lookupByBarcode(connection, fieldConfig, scannedValue)` in
+- [X] T012 [US1] Implement `lookupByBarcode(connection, fieldConfig, scannedValue)` in
       `src/baserow/client.ts`, filtering for an exact text match on the configured barcode field
       and returning the discriminated `LookupOutcome` from T004 — never picks an arbitrary row on
       duplicates (FR-009–FR-012) — satisfies T009.
-- [ ] T013 [US1] Build the Connect/Configure screen in `app/index.tsx`: on launch, load any
+- [X] T013 [US1] Build the Connect/Configure screen in `app/index.tsx`: on launch, load any
       persisted connection/configuration via `src/connection/storage.ts` (T006) and skip straight
       to Scan if it's already usable; otherwise show server URL + token entry, call
       `listTables`/`listFields` (T011) to validate the connection (FR-002) and populate the
@@ -118,7 +118,7 @@ values, scan each value, and verify that only a unique exact match opens a recor
       Case, FR-019). FR-020 applies to this and every other screen: scalable text, screen-reader
       labels, light and dark appearances, platform minimum touch targets, safe areas, and native
       system back behavior.
-- [ ] T014 [US1] Build the Scan screen in `app/scan.tsx`: `expo-camera`'s `CameraView` with
+- [X] T014 [US1] Build the Scan screen in `app/scan.tsx`: `expo-camera`'s `CameraView` with
       `barcodeScannerSettings={{ barcodeTypes: [...] }}` (QR, Code 128, EAN per spec.md's
       Assumptions) and `onBarcodeScanned` calling `lookupByBarcode` (T012); branches explicitly
       on the `LookupOutcome` — opens Record only on `found`, shows a not-found state on `none`,
