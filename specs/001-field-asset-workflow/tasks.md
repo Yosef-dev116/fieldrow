@@ -209,9 +209,18 @@ this feature can ship.
       physical Android test device against a live Baserow test table: all three user-story
       scenarios, the light/dark + enlarged-text + screen-reader accessibility pass (FR-020,
       SC-007), and the credential-safety check across logs/crash reports/screenshots (SC-008).
-- [ ] T022 [P] Review every error path added in T011–T020 for credential safety: confirm no
+      **Blocked in this environment**: no physical iOS/Android device and no live Baserow test
+      table are available to the agent. Everything verifiable without them — `npx tsc --noEmit`,
+      `npm test`, `npx expo-doctor` — passes as of the Polish-phase commit, and T022 below covers
+      the credential-safety half statically. The live-device run still needs to happen before
+      release; this checkbox is left unchecked deliberately rather than claimed.
+- [X] T022 [P] Review every error path added in T011–T020 for credential safety: confirm no
       function logs or displays `connection.token` or a raw Baserow response body (FR-019,
-      Constitution IV).
+      Constitution IV). Audited: zero `console.*` calls anywhere in `app/` or `src/`; the token
+      is interpolated only into the two `Authorization: Token ${connection.token}` header
+      constructions in `src/baserow/client.ts`; every thrown/returned error message is a static,
+      hand-written string (never `response` text or a caught error's raw body); the token input
+      on the Connect screen uses `secureTextEntry`. No violations found.
 
 ---
 
